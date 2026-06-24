@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Analytics Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark px-4">
+        <a class="navbar-brand" href="/">🎮 Steam Analytics</a>
+        <div>
+            <a href="/" class="btn btn-outline-light btn-sm me-2">Home</a>
+            <a href="/benchmarks" class="btn btn-outline-light btn-sm">Benchmarks</a>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold">Steam Game Analytics</h1>
+            <p class="lead text-muted">AI-Powered Sentiment Analysis & Success Prediction</p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="input-group input-group-lg">
+                    <input type="text" id="searchInput" class="form-control" 
+                           placeholder="Search for any Steam game...">
+                    <button class="btn btn-primary" onclick="searchGames()">Search</button>
+                </div>
+                <div id="searchResults" class="list-group mt-2"></div>
+            </div>
+        </div>
+
+        <div class="row mt-5 text-center">
+            <div class="col-md-4">
+                <div class="card bg-light p-3">
+                    <h3>242</h3>
+                    <p class="text-muted">Games Indexed</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light p-3">
+                    <h3>991,650</h3>
+                    <p class="text-muted">Reviews Analyzed</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light p-3">
+                    <h3>3</h3>
+                    <p class="text-muted">NLP Models Compared</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', async () => {
+            const q = searchInput.value.trim();
+            if (q.length < 2) { searchResults.innerHTML = ''; return; }
+            
+            const res = await fetch(`/api/games/search?q=${encodeURIComponent(q)}`);
+            const games = await res.json();
+            
+            searchResults.innerHTML = games.map(g => 
+                `<a href="/game/${encodeURIComponent(g)}" class="list-group-item list-group-item-action">${g}</a>`
+            ).join('');
+        });
+
+        function searchGames() {
+            const q = searchInput.value.trim();
+            if (q) searchInput.dispatchEvent(new Event('input'));
+        }
+    </script>
+</body>
+</html>

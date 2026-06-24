@@ -1,0 +1,30 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Large data files - do NOT commit raw datasets
+*.csv
+data/raw/
+data/*.parquet
+*.db
+*.sqlite3
+
+# Thesis document - keep out of public repo (academic integrity risk)
+Thesis_updated.docx
+*.docx
+
+# Environment / secrets
+.env
+*.key
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.zip
+data/**/*.parquet
+*.npy
+notebooks/lda_model*
+notebooks/xgboost_model*.json
+Thesis_*.pdf
+Thesis_updated_backup*

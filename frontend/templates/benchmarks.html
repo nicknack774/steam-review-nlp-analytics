@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Benchmarks — Steam Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark px-4">
+        <a class="navbar-brand" href="/">🎮 Steam Analytics</a>
+        <div>
+            <a href="/" class="btn btn-outline-light btn-sm me-2">Home</a>
+            <a href="/benchmarks" class="btn btn-outline-light btn-sm active">Benchmarks</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="fw-bold">Storage Format Benchmarking</h2>
+        <p class="text-muted">Comparative evaluation of PostgreSQL, SQLite, Parquet and CSV across 6 query types on 991,650 reviews</p>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card p-3">
+                    <h5>Query Execution Time by Format</h5>
+                    <div id="queryChart"></div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3">
+                    <h5>Storage Size Comparison</h5>
+                    <div id="storageChart"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-4">
+            <h5>Results Summary</h5>
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Query</th>
+                        <th>PostgreSQL</th>
+                        <th>SQLite</th>
+                        <th>Parquet</th>
+                        <th>CSV</th>
+                        <th>Winner</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Q1: Point Lookup</td><td>52ms</td><td class="table-success fw-bold">17ms</td><td>1734ms</td><td>8978ms</td><td>SQLite</td></tr>
+                    <tr><td>Q2: Text Search</td><td>2684ms</td><td class="table-success fw-bold">1510ms</td><td>2216ms</td><td>7641ms</td><td>SQLite</td></tr>
+                    <tr><td>Q3: Aggregation</td><td>2075ms</td><td>1140ms</td><td class="table-success fw-bold">128ms</td><td>2949ms</td><td>Parquet</td></tr>
+                    <tr><td>Q4: Range Filter</td><td>2114ms</td><td>1798ms</td><td class="table-success fw-bold">1249ms</td><td>7232ms</td><td>Parquet</td></tr>
+                    <tr><td>Q5: Top-K Agg</td><td>2015ms</td><td>286ms</td><td class="table-success fw-bold">117ms</td><td>3385ms</td><td>Parquet</td></tr>
+                    <tr><td>Q6: Full Scan</td><td>1646ms</td><td>323ms</td><td class="table-success fw-bold">39ms</td><td>2843ms</td><td>Parquet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/benchmarks')
+            .then(r => r.json())
+            .then(data => {
+                const queries = Object.keys(data.query_times);
+                const formats = ['PostgreSQL', 'SQLite', 'Parquet', 'CSV'];
+                const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336'];
+
+                // Query time grouped bar chart
+                const traces = formats.map((fmt, i) => ({
+                    name: fmt,
+                    x: queries,
+                    y: queries.map(q => data.query_times[q][fmt]),
+                    type: 'bar',
+                    marker: { color: colors[i] }
+                }));
+
+                Plotly.newPlot('queryChart', traces, {
+                    barmode: 'group',
+                    yaxis: { title: 'Execution Time (ms)' },
+                    legend: { orientation: 'h' },
+                    margin: { t: 20 }
+                });
+
+                // Storage size chart
+                const fmts = Object.keys(data.storage_sizes);
+                Plotly.newPlot('storageChart', [{
+                    x: fmts,
+                    y: fmts.map(f => data.storage_sizes[f]),
+                    type: 'bar',
+                    marker: { color: ['#F44336', '#4CAF50', '#2196F3', '#FF9800'] },
+                    text: fmts.map(f => data.storage_sizes[f] + ' MB'),
+                    textposition: 'outside'
+                }], {
+                    yaxis: { title: 'Size (MB)' },
+                    margin: { t: 20 }
+                });
+            });
+    </script>
+</body>
+</html>

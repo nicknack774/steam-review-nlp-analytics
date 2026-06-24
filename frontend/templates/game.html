@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ game_name }} — Steam Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark px-4">
+        <a class="navbar-brand" href="/">🎮 Steam Analytics</a>
+        <div>
+            <a href="/" class="btn btn-outline-light btn-sm me-2">Home</a>
+            <a href="/benchmarks" class="btn btn-outline-light btn-sm">Benchmarks</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="fw-bold">{{ game_name }}</h2>
+        <p class="text-muted">Game Analytics Dashboard</p>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4" id="statsCards">
+            <div class="col-md-3">
+                <div class="card p-3 text-center">
+                    <h4 id="totalReviews">...</h4>
+                    <p class="text-muted mb-0">Total Reviews</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3 text-center">
+                    <h4 id="positivePct">...</h4>
+                    <p class="text-muted mb-0">Positive Reviews</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3 text-center">
+                    <h4 id="avgHours">...</h4>
+                    <p class="text-muted mb-0">Avg Hours Played</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3 text-center">
+                    <h4 id="avgHelpful">...</h4>
+                    <p class="text-muted mb-0">Avg Helpful Votes</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" onclick="showTab('sentiment')">Sentiment Analysis</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showTab('reviews')">Reviews</a>
+            </li>
+        </ul>
+
+        <!-- Sentiment Tab -->
+        <div id="tab-sentiment">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card p-3">
+                        <h5>Model Accuracy Comparison</h5>
+                        <div id="accuracyChart"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card p-3">
+                        <h5>F1 Score Comparison</h5>
+                        <div id="f1Chart"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card p-3">
+                        <h5>Negative Review Precision</h5>
+                        <p class="text-muted small">How well each model identifies negative reviews — the hardest case for gaming language</p>
+                        <div id="negChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Tab -->
+        <div id="tab-reviews" style="display:none">
+            <div class="card p-3">
+                <h5>Top Reviews by Helpful Votes</h5>
+                <div id="reviewsList"></div>
+                <button class="btn btn-outline-primary mt-3" onclick="loadMoreReviews()">Load More</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameName = "{{ game_name }}";
+        let currentPage = 1;
+
+        // Load stats
+        fetch(`/api/games/${encodeURIComponent(gameName)}/stats`)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('totalReviews').textContent = data.total_reviews.toLocaleString();
+                document.getElementById('positivePct').textContent = data.positive_pct + '%';
+                document.getElementById('avgHours').textContent = data.avg_hours + 'h';
+                document.getElementById('avgHelpful').textContent = data.avg_helpful;
+            });
+
+        // Load sentiment charts
+        fetch(`/api/games/${encodeURIComponent(gameName)}/sentiment`)
+            .then(r => r.json())
+            .then(data => {
+                const models = Object.keys(data.models);
+                const colors = ['#2196F3', '#4CAF50', '#FF9800'];
+
+                // Accuracy chart
+                Plotly.newPlot('accuracyChart', [{
+                    x: models,
+                    y: models.map(m => data.models[m].accuracy),
+                    type: 'bar',
+                    marker: { color: colors },
+                    text: models.map(m => data.models[m].accuracy + '%'),
+                    textposition: 'outside'
+                }], {
+                    yaxis: { range: [0, 100], title: 'Accuracy (%)' },
+                    margin: { t: 20 }
+                });
+
+                // F1 chart
+                Plotly.newPlot('f1Chart', [{
+                    x: models,
+                    y: models.map(m => data.models[m].f1),
+                    type: 'bar',
+                    marker: { color: colors },
+                    text: models.map(m => data.models[m].f1 + '%'),
+                    textposition: 'outside'
+                }], {
+                    yaxis: { range: [0, 100], title: 'F1 Score (%)' },
+                    margin: { t: 20 }
+                });
+
+                // Negative precision chart
+                Plotly.newPlot('negChart', [{
+                    x: models,
+                    y: models.map(m => data.models[m].neg_precision),
+                    type: 'bar',
+                    marker: { color: colors },
+                    text: models.map(m => data.models[m].neg_precision + '%'),
+                    textposition: 'outside'
+                }], {
+                    yaxis: { range: [0, 100], title: 'Negative Precision (%)' },
+                    shapes: [{
+                        type: 'line', x0: -0.5, x1: 2.5, y0: 50, y1: 50,
+                        line: { color: 'red', dash: 'dash' }
+                    }],
+                    margin: { t: 20 }
+                });
+            });
+
+        // Load reviews
+        function loadReviews(page) {
+            fetch(`/api/games/${encodeURIComponent(gameName)}/reviews?page=${page}`)
+                .then(r => r.json())
+                .then(reviews => {
+                    const list = document.getElementById('reviewsList');
+                    reviews.forEach(r => {
+                        const badge = r.is_recommended 
+                            ? '<span class="badge bg-success">👍 Recommended</span>'
+                            : '<span class="badge bg-danger">👎 Not Recommended</span>';
+                        const div = document.createElement('div');
+                        div.className = 'border-bottom py-3';
+                        div.innerHTML = `
+                            <div class="d-flex justify-content-between mb-1">
+                                ${badge}
+                                <small class="text-muted">${r.hours_played}h played · ${r.helpful} found helpful</small>
+                            </div>
+                            <p class="mb-0">${r.review_text.substring(0, 300)}${r.review_text.length > 300 ? '...' : ''}</p>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        function loadMoreReviews() {
+            currentPage++;
+            loadReviews(currentPage);
+        }
+
+        function showTab(tab) {
+            document.getElementById('tab-sentiment').style.display = tab === 'sentiment' ? 'block' : 'none';
+            document.getElementById('tab-reviews').style.display = tab === 'reviews' ? 'block' : 'none';
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            event.target.classList.add('active');
+            if (tab === 'reviews' && currentPage === 1) loadReviews(1);
+        }
+    </script>
+</body>
+</html>
